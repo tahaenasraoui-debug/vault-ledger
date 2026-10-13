@@ -1,0 +1,44 @@
+{
+  "productName": "VaultLedger",
+  "version": "1.0.0",
+  "identifier": "local.vaultledger.airgap",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "VaultLedger — Air-Gapped Financial Extraction Engine",
+        "width": 1280,
+        "height": 860,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'ipc:' 'http://ipc.localhost'; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$RESOURCE/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "resources": [
+      "resources/models/gemma-2b-it-q4_k_m.gguf",
+      "resources/models/tokenizer.json",
+      "resources/ocr/text-detection.rten",
+      "resources/ocr/text-recognition.rten"
+    ]
+  }
+}

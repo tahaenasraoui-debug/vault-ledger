@@ -1,0 +1,10 @@
+{
+  "identifier": "airgap-core-capability",
+  "description": "Strict local-only IPC capability with zero external network or shell access.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit"
+  ]
+}
