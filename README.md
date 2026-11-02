@@ -1,4 +1,4 @@
-# 🛡️ VaultLedger
+# VaultLedger
 
 ### **Air-Gapped Local AI Financial Extraction & Cryptographic Double-Entry Ledger**
 
@@ -6,13 +6,13 @@
 
 ---
 
-## ⚡ Overview
+## Overview
 
 Freelancers, auditors, and privacy-critical businesses shouldn't have to upload sensitive invoices, tax IDs, and banking records to third-party cloud APIs just to automate bookkeeping.
 
 **VaultLedger** is a strictly **air-gapped, local-first desktop application** engineered in **Rust** and **Tauri v2**. It ingests messy PDF invoices or receipt photos, extracts structured accounting line items using an embedded **Google Gemma 2B (Q4_K_M GGUF)** model running via pure-Rust **Candle** tensors, anchors every record into a **SHA-256 tamper-evident SQLite database**, and exports balanced **Double-Entry General Ledger CSVs**.
 
-### 🔒 The Air-Gap Guarantee
+### The Air-Gap Guarantee
 
 * **Compile-Time Network Ban:** `build.rs` inspects the resolved Cargo dependency graph at compile time and panics if any HTTP/network crate (`reqwest`, `curl`, `hyper`, `ureq`) is present.
 * **Memory Safety:** Compiled with `#![forbid(unsafe_code)]` across the entire Rust codebase.
@@ -20,7 +20,7 @@ Freelancers, auditors, and privacy-critical businesses shouldn't have to upload 
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ flowchart LR
 
 ---
 
-## ✨ Key Engineering Features
+## Key Engineering Features
 
 | Subsystem | Technical Implementation | Why It Matters |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ flowchart LR
 
 ---
 
-## 📊 General Ledger Account Mapping
+## General Ledger Account Mapping
 
 Every extracted invoice is automatically classified into a standard General Ledger chart-of-accounts code and expanded into balanced double-entry legs upon export:
 
@@ -75,7 +75,7 @@ Every extracted invoice is automatically classified into a standard General Ledg
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```text
 vault-ledger/
@@ -109,7 +109,7 @@ vault-ledger/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Prerequisites
 
@@ -143,6 +143,6 @@ npm run tauri build
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License.
