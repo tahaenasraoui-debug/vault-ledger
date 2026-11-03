@@ -4,6 +4,8 @@
 
 *Zero Cloud. Zero Telemetry. 100% On-Device Rust + Quantized Gemma 2B Inference.*
 
+**Website:** [tahaenasraoui-debug.github.io/vault-ledger](https://tahaenasraoui-debug.github.io/vault-ledger/)
+
 ---
 
 ## Overview
@@ -17,6 +19,14 @@ Freelancers, auditors, and privacy-critical businesses shouldn't have to upload 
 * **Compile-Time Network Ban:** `build.rs` inspects the resolved Cargo dependency graph at compile time and panics if any HTTP/network crate (`reqwest`, `curl`, `hyper`, `ureq`) is present.
 * **Memory Safety:** Compiled with `#![forbid(unsafe_code)]` across the entire Rust codebase.
 * **Locked CSP:** Tauri v2 capability sandboxing restricts IPC strictly to local memory with external origins blocked.
+
+---
+
+## Demo
+
+![VaultLedger dashboard](assets/image.png)
+
+Live site: [https://tahaenasraoui-debug.github.io/vault-ledger/](https://tahaenasraoui-debug.github.io/vault-ledger/)
 
 ---
 
