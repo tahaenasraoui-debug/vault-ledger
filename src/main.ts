@@ -66,16 +66,34 @@ interface IpcErrorEnvelope {
   context: string | null;
 }
 
-const GL_LABELS: Record<string, string> = {
-  SoftwareAndSaaS: "6110 · SaaS",
-  HardwareAndEquipment: "6120 · Hardware",
-  OfficeSupplies: "6130 · Supplies",
-  TravelAndTransport: "6210 · Travel",
-  MealsAndEntertainment: "6220 · Meals",
-  ProfessionalServices: "6310 · Prof Serv",
-  Utilities: "6410 · Utilities",
-  Other: "6990 · Misc",
+const GL_LABELS: Record<string, { code: string; name: string }> = {
+  SoftwareAndSaaS: { code: "6110", name: "SaaS" },
+  HardwareAndEquipment: { code: "6120", name: "Hardware" },
+  OfficeSupplies: { code: "6130", name: "Supplies" },
+  TravelAndTransport: { code: "6210", name: "Travel" },
+  MealsAndEntertainment: { code: "6220", name: "Meals" },
+  ProfessionalServices: { code: "6310", name: "Professional" },
+  Utilities: { code: "6410", name: "Utilities" },
+  Other: { code: "6990", name: "Other" },
 };
+
+const ICON_EDIT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const ICON_DELETE =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>';
+
+const moneyFormat = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function money(value: number): string {
+  return moneyFormat.format(value);
+}
+
+function moneyWithCurrency(value: number, ccy: string): string {
+  return `${money(value)}<span class="ccy">${escapeHtml(ccy)}</span>`;
+}
 
 let allRecords: LedgerRecord[] = [];
 
@@ -165,17 +183,13 @@ function updateKpiCards(records: LedgerRecord[]): void {
   }
 
   const ccy = records.length > 0 ? records[records.length - 1].document.currency : "MAD";
-  kpiGross.textContent = `${gross.toFixed(2)} ${ccy}`;
+  kpiGross.innerHTML = moneyWithCurrency(gross, ccy);
   kpiGrossSub.textContent = `Across ${records.length} verified document${records.length === 1 ? "" : "s"}`;
-  kpiNet.textContent = `${net.toFixed(2)} ${ccy}`;
-  kpiTax.textContent = `${tax.toFixed(2)} ${ccy}`;
+  kpiNet.innerHTML = moneyWithCurrency(net, ccy);
+  kpiTax.innerHTML = moneyWithCurrency(tax, ccy);
 
-  if (records.length > 0) {
-    const avgConf = Math.round((confSum / records.length) * 100);
-    kpiConfidence.textContent = `${avgConf}% AI CONF`;
-  } else {
-    kpiConfidence.textContent = "100% INTACT";
-  }
+  kpiConfidence.textContent =
+    records.length > 0 ? `${Math.round((confSum / records.length) * 100)}%` : "—";
 }
 
 function renderFilteredTable(): void {
@@ -199,7 +213,7 @@ function renderFilteredTable(): void {
 
   if (filtered.length === 0) {
     const emptyTr = document.createElement("tr");
-    emptyTr.innerHTML = `<td colspan="11" class="empty-state">No matching ledger records found. Ingest a PDF or receipt image above to populate the vault.</td>`;
+    emptyTr.innerHTML = `<td colspan="8" class="empty-state">No records to show. Extract an invoice to add the first one.</td>`;
     ledgerTbody.appendChild(emptyTr);
     return;
   }
@@ -207,34 +221,33 @@ function renderFilteredTable(): void {
   for (const rec of filtered) {
     const doc = rec.document;
     const tr = document.createElement("tr");
-    const shortHash = rec.chain_hash.slice(0, 10) + "…";
+    const shortHash = rec.chain_hash.slice(0, 8) + "…";
     const confPct = Math.round(doc.confidence_score * 100);
-    const glLabel = GL_LABELS[doc.expense_category] ?? doc.expense_category;
+    const gl = GL_LABELS[doc.expense_category] ?? { code: "", name: doc.expense_category };
+    const sourceLine = doc.invoice_number
+      ? `Invoice ${doc.invoice_number} from ${rec.source_file_name}`
+      : `From ${rec.source_file_name}`;
 
     tr.innerHTML = `
-      <td><strong>${escapeHtml(doc.transaction_date)}</strong></td>
+      <td>${escapeHtml(doc.transaction_date)}</td>
       <td>
-        <div class="vendor-cell">
-          <span class="vendor-name">${escapeHtml(doc.vendor_name)}</span>
-          <span class="vendor-source">${escapeHtml(rec.source_file_name)} · ${escapeHtml(rec.extraction_method)}</span>
-        </div>
+        <span class="vendor-name">${escapeHtml(doc.vendor_name)}</span>
+        <span class="vendor-source" title="${escapeHtml(rec.source_file_name)} (${escapeHtml(rec.extraction_method)})">${escapeHtml(sourceLine)}</span>
       </td>
-      <td>${escapeHtml(doc.invoice_number ?? "—")}</td>
-      <td><span class="gl-badge">${escapeHtml(glLabel)}</span></td>
-      <td><span class="ccy-pill">${escapeHtml(doc.currency)}</span></td>
-      <td class="num">${doc.net_amount.toFixed(2)}</td>
-      <td class="num">${doc.tax_amount.toFixed(2)}</td>
-      <td class="num"><strong>${doc.total_amount.toFixed(2)}</strong></td>
+      <td><span class="gl-code">${escapeHtml(gl.code)}</span> ${escapeHtml(gl.name)}</td>
+      <td class="num">${money(doc.net_amount)}</td>
+      <td class="num">${money(doc.tax_amount)}</td>
+      <td class="num total">${moneyWithCurrency(doc.total_amount, doc.currency)}</td>
       <td>
-        <div class="conf-wrap">
-          <div class="conf-bar"><div class="conf-fill" style="width: ${confPct}%"></div></div>
+        <div class="conf">
+          <div class="conf-bar"><div class="conf-fill${confPct < 70 ? " low" : ""}" style="width: ${confPct}%"></div></div>
           <span>${confPct}%</span>
         </div>
+        <span class="hash-badge" title="Chain SHA-256: ${rec.chain_hash}">${shortHash}</span>
       </td>
-      <td><span class="hash-badge" title="Chain SHA-256: ${rec.chain_hash}">${shortHash}</span></td>
       <td class="actions-col">
-        <button class="row-btn" data-edit-id="${rec.record_id}">Edit</button>
-        <button class="row-btn delete" data-delete-id="${rec.record_id}">Delete</button>
+        <button class="row-btn" data-edit-id="${rec.record_id}" aria-label="Edit ${escapeHtml(doc.vendor_name)}" title="Edit">${ICON_EDIT}</button>
+        <button class="row-btn delete" data-delete-id="${rec.record_id}" aria-label="Delete ${escapeHtml(doc.vendor_name)}" title="Delete">${ICON_DELETE}</button>
       </td>
     `;
 
@@ -282,12 +295,13 @@ async function refreshSystemState(): Promise<void> {
   try {
     const status = await invoke<AirGapStatusReport>("verify_airgap_integrity");
     infoDbPath.textContent = status.database_path;
+    infoDbPath.title = status.database_path;
     infoHeadHash.textContent = status.audit_report.head_chain_hash.slice(0, 16) + "…";
-    infoEventsCount.textContent = `${status.audit_report.audit_events_verified} signed events`;
+    infoEventsCount.textContent = `${status.audit_report.audit_events_verified} signed event${status.audit_report.audit_events_verified === 1 ? "" : "s"}`;
 
     if (status.audit_report.integrity_valid) {
       badgeChain.className = "status-pill status-emerald";
-      badgeChainText.textContent = `CHAIN VERIFIED (${status.audit_report.active_records_verified})`;
+      badgeChainText.textContent = `Chain verified, ${status.audit_report.active_records_verified} record${status.audit_report.active_records_verified === 1 ? "" : "s"}`;
     }
 
     allRecords = await invoke<LedgerRecord[]>("list_ledger_records");
@@ -295,7 +309,7 @@ async function refreshSystemState(): Promise<void> {
     renderFilteredTable();
   } catch (err) {
     badgeChain.className = "status-pill status-rose";
-    badgeChainText.textContent = "TAMPER ALERT";
+    badgeChainText.textContent = "Tampering detected";
     pushToast(formatError(err), true);
   }
 }
@@ -303,7 +317,7 @@ async function refreshSystemState(): Promise<void> {
 async function handleIngestDocument(): Promise<void> {
   const filePath = inputFilePath.value.trim();
   if (!filePath) {
-    pushToast("Enter a local PDF or image path first.", true);
+    pushToast("Enter the path of a PDF or image first.", true);
     return;
   }
 
@@ -311,14 +325,14 @@ async function handleIngestDocument(): Promise<void> {
   streamingBox.classList.remove("hidden");
   streamOutput.textContent = "{";
   streamTokenCount.textContent = "0 tokens";
-  streamStatusLabel.textContent = "RUNNING LOCAL GEMMA-2B GGUF INFERENCE...";
+  streamStatusLabel.textContent = "Reading document…";
 
   try {
     const record = await invoke<LedgerRecord>("ingest_and_extract_document", {
       filePath,
     });
     pushToast(
-      `Extracted "${record.document.vendor_name}" (${record.document.total_amount.toFixed(2)} ${record.document.currency}) and anchored to SQLite.`
+      `Extracted "${record.document.vendor_name}" (${money(record.document.total_amount)} ${record.document.currency}) and saved it to the vault.`
     );
     inputFilePath.value = "";
     await refreshSystemState();
@@ -332,7 +346,7 @@ async function handleIngestDocument(): Promise<void> {
 async function handleDeleteRecord(recordId: string): Promise<void> {
   try {
     await invoke<DatabaseAuditReport>("delete_ledger_record", { recordId });
-    pushToast(`Record removed and SHA-256 chain re-anchored.`);
+    pushToast("Record deleted. The SHA-256 chain was recalculated.");
     await refreshSystemState();
   } catch (err) {
     pushToast(formatError(err), true);
@@ -365,7 +379,7 @@ async function handleSaveEdit(e: Event): Promise<void> {
       updatedDocument,
     });
     closeEditModal();
-    pushToast(`Updated "${updatedDocument.vendor_name}" and re-verified SHA-256 chain.`);
+    pushToast(`Saved "${updatedDocument.vendor_name}". The SHA-256 chain was recalculated.`);
     await refreshSystemState();
   } catch (err) {
     pushToast(formatError(err), true);
@@ -375,7 +389,7 @@ async function handleSaveEdit(e: Event): Promise<void> {
 async function handleExportCsv(): Promise<void> {
   const destinationPath = inputExportPath.value.trim();
   if (!destinationPath) {
-    pushToast("Enter a destination file path for the CSV export.", true);
+    pushToast("Enter a path to save the CSV to.", true);
     return;
   }
 
@@ -385,7 +399,7 @@ async function handleExportCsv(): Promise<void> {
       destinationPath,
     });
     pushToast(
-      `Exported ${summary.documents_exported} invoices (${summary.journal_rows_written} balanced journal legs) to ${summary.destination_path}.`
+      `Exported ${summary.documents_exported} invoices (${summary.journal_rows_written} journal lines) to ${summary.destination_path}.`
     );
   } catch (err) {
     pushToast(formatError(err), true);
@@ -398,12 +412,12 @@ async function handleVerifyIntegrity(): Promise<void> {
   try {
     const report = await invoke<DatabaseAuditReport>("verify_ledger_audit_chain");
     pushToast(
-      `Audit Passed: ${report.active_records_verified} active records & ${report.audit_events_verified} historical events verified intact.`
+      `Audit passed: ${report.active_records_verified} records and ${report.audit_events_verified} audit events are intact.`
     );
     await refreshSystemState();
   } catch (err) {
     badgeChain.className = "status-pill status-rose";
-    badgeChainText.textContent = "TAMPER ALERT";
+    badgeChainText.textContent = "Tampering detected";
     pushToast(formatError(err), true);
   }
 }
@@ -420,7 +434,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   formEditRecord.addEventListener("submit", handleSaveEdit);
 
   await listen<InferenceProgressEvent>("vault://inference-progress", (event) => {
-    streamStatusLabel.textContent = `STREAMING JSON · ${event.payload.file_name}`;
+    streamStatusLabel.textContent = `Extracting ${event.payload.file_name}`;
     streamTokenCount.textContent = `${event.payload.tokens_generated} tokens`;
     streamOutput.textContent += event.payload.latest_token;
     streamOutput.scrollTop = streamOutput.scrollHeight;
