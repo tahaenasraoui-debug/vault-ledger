@@ -824,4 +824,19 @@ input:focus-visible,
     animation: none !important;
     transition: none !important;
   }
+<<<<<<< HEAD
+=======
+}
+
+.stream-head span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-head span:last-child {
+  flex: none;
+  white-space: nowrap;
+>>>>>>> c43bda1 (Update project files)
 }
