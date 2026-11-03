@@ -119,6 +119,8 @@ Ensure you have **Rust (1.79+)** and **Node.js (18+)** installed.
 ```bash
 sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg nodejs npm rustup
 rustup default stable
+git clone https://github.com/tahaenasraoui-debug/vault-ledger.git
+cd vault-ledger
 
 ```
 
