@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VaultLedger</title>
+    <script type="module" crossorigin src="./assets/index-Bzowq_4D.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-_oErZalZ.css">
+  </head>
+  <body>
+    <!-- The glass needs something to blur: a vault dial and a coin on ledger-ruled paper. -->
+    <div class="backdrop" aria-hidden="true">
+      <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="rules" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M0 39.5H40" stroke="#f3eee3" stroke-opacity="0.05" />
+          </pattern>
+        </defs>
+        <rect width="1600" height="1000" fill="#0c1520" />
+        <rect width="1600" height="1000" fill="url(#rules)" />
+
+        <circle cx="140" cy="840" r="240" fill="#6b2a35" />
+        <circle cx="140" cy="840" r="196" fill="none" stroke="#d4a24c" stroke-opacity="0.55" stroke-width="3" />
+
+        <g transform="translate(1140 500)">
+          <circle r="480" fill="#14464a" />
+          <circle r="480" fill="none" stroke="#d4a24c" stroke-opacity="0.85" stroke-width="6" />
+          <circle r="424" fill="none" stroke="#d4a24c" stroke-opacity="0.6" stroke-width="34" stroke-dasharray="3 23.64" />
+          <circle r="340" fill="none" stroke="#f3eee3" stroke-opacity="0.28" stroke-width="2" />
+          <circle r="250" fill="#0c1520" fill-opacity="0.55" />
+          <circle r="250" fill="none" stroke="#d4a24c" stroke-opacity="0.75" stroke-width="2" />
+          <path d="M0 -196 L20 -150 L-20 -150Z" fill="#d4a24c" />
+          <circle r="48" fill="#d4a24c" />
+        </g>
+      </svg>
+    </div>
+
+    <div class="app">
+      <header class="masthead">
+        <div class="brand">
+          <h1 title="Version 1.0">VaultLedger</h1>
+          <p>Offline invoice extraction and double-entry ledger</p>
+        </div>
+
+        <div class="status">
+          <span class="status-pill status-emerald" title="No network sockets are compiled into this app">Network disabled</span>
+          <span class="status-pill status-neutral" title="Quantized local language model">Gemma 2B Q4_K_M</span>
+          <span id="badge-chain" class="status-pill status-emerald">
+            <span id="badge-chain-text">Verifying chain…</span>
+          </span>
+        </div>
+      </header>
+
+      <aside class="rail pane">
+        <section class="rail-section">
+          <h2>Add a document</h2>
+          <p class="section-note">Read the vendor, date and amounts from a PDF or image on this computer.</p>
+
+          <div class="field">
+            <label for="input-file-path">File path</label>
+            <input
+              id="input-file-path"
+              type="text"
+              placeholder="~/Documents/invoice.pdf"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span class="hint">PDF, PNG, JPG, TIFF or WebP</span>
+          </div>
+
+          <button id="btn-ingest" class="btn btn-primary">Extract</button>
+
+          <div id="streaming-box" class="stream hidden">
+            <div class="stream-head">
+              <span id="stream-status-label">Reading document</span>
+              <span id="stream-token-count">0 tokens</span>
+            </div>
+            <pre id="stream-output"></pre>
+          </div>
+        </section>
+
+        <section class="rail-section">
+          <h2>Export journal</h2>
+          <p class="section-note">Write every record to a CSV as balanced debit and credit lines.</p>
+
+          <div class="field">
+            <label for="input-export-path">Save to</label>
+            <input
+              id="input-export-path"
+              type="text"
+              placeholder="~/Documents/journal_2026.csv"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+
+          <button id="btn-export" class="btn btn-secondary">Export CSV</button>
+        </section>
+
+        <section class="rail-section">
+          <div class="section-row">
+            <h2>Vault</h2>
+            <button id="btn-verify" class="btn btn-text" title="Re-check every record and audit event in the database">Run audit</button>
+          </div>
+
+          <dl class="facts">
+            <div class="stack">
+              <dt>Database</dt>
+              <dd><code id="info-db-path" class="clip">Starting…</code></dd>
+            </div>
+            <div>
+              <dt>Chain head</dt>
+              <dd><code id="info-head-hash">00000000…</code></dd>
+            </div>
+            <div>
+              <dt>Audit log</dt>
+              <dd id="info-events-count">0 signed events</dd>
+            </div>
+            <div>
+              <dt>Average confidence</dt>
+              <dd id="kpi-confidence">—</dd>
+            </div>
+          </dl>
+        </section>
+      </aside>
+
+      <main class="sheet pane">
+        <div class="totals">
+          <div class="total-main">
+            <span class="caption">Total spent</span>
+            <div id="kpi-gross" class="figure">0.00</div>
+            <div id="kpi-gross-sub" class="caption">Across 0 verified documents</div>
+          </div>
+
+          <div class="total-parts">
+            <div class="part">
+              <span class="caption">Net expense</span>
+              <div id="kpi-net" class="part-value">0.00</div>
+              <span class="caption">Expense accounts 6110 to 6990</span>
+            </div>
+            <span class="operator" aria-hidden="true">+</span>
+            <div class="part">
+              <span class="caption">Recoverable tax</span>
+              <div id="kpi-tax" class="part-value">0.00</div>
+              <span id="kpi-tax-sub" class="caption">Account 2210</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-title">
+            <h2>Journal</h2>
+            <span id="record-count" class="count">0</span>
+          </div>
+
+          <div class="toolbar-controls">
+            <input
+              id="input-search"
+              class="search"
+              type="search"
+              placeholder="Search vendor or invoice number"
+              aria-label="Search the journal"
+              autocomplete="off"
+            />
+
+            <select id="select-category-filter" class="select" aria-label="Filter by category">
+              <option value="ALL">All categories</option>
+              <option value="SoftwareAndSaaS">6110 Software and SaaS</option>
+              <option value="HardwareAndEquipment">6120 Hardware and equipment</option>
+              <option value="OfficeSupplies">6130 Office supplies</option>
+              <option value="TravelAndTransport">6210 Travel and transport</option>
+              <option value="MealsAndEntertainment">6220 Meals and entertainment</option>
+              <option value="ProfessionalServices">6310 Professional services</option>
+              <option value="Utilities">6410 Utilities and telecom</option>
+              <option value="Other">6990 Other operating</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vendor</th>
+                <th>Category</th>
+                <th class="num">Net</th>
+                <th class="num">Tax</th>
+                <th class="num">Total</th>
+                <th>Verification</th>
+                <th class="actions-col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="ledger-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+
+    <div id="edit-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+      <div class="modal-card pane">
+        <div class="modal-header">
+          <div>
+            <h3 id="edit-title">Edit record</h3>
+            <p>Saving adds a signed update to the audit log and recalculates the SHA-256 chain.</p>
+          </div>
+          <button id="btn-close-modal" class="btn-icon" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <form id="form-edit-record" class="modal-form">
+          <input id="edit-record-id" type="hidden" />
+          <div class="form-grid">
+            <div class="field">
+              <label for="edit-vendor">Vendor</label>
+              <input id="edit-vendor" type="text" required />
+            </div>
+            <div class="field">
+              <label for="edit-invoice">Invoice number</label>
+              <input id="edit-invoice" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="edit-date">Date (YYYY-MM-DD)</label>
+              <input id="edit-date" type="text" required />
+            </div>
+            <div class="field">
+              <label for="edit-currency">Currency (3 letters)</label>
+              <input id="edit-currency" type="text" maxlength="3" required />
+            </div>
+            <div class="field">
+              <label for="edit-net">Net amount</label>
+              <input id="edit-net" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label for="edit-tax">Tax amount</label>
+              <input id="edit-tax" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label for="edit-total">Total (net plus tax)</label>
+              <input id="edit-total" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label for="edit-category">Category</label>
+              <select id="edit-category" class="select">
+                <option value="SoftwareAndSaaS">6110 Software and SaaS</option>
+                <option value="HardwareAndEquipment">6120 Hardware and equipment</option>
+                <option value="OfficeSupplies">6130 Office supplies</option>
+                <option value="TravelAndTransport">6210 Travel and transport</option>
+                <option value="MealsAndEntertainment">6220 Meals and entertainment</option>
+                <option value="ProfessionalServices">6310 Professional services</option>
+                <option value="Utilities">6410 Utilities and telecom</option>
+                <option value="Other">6990 Other operating</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" id="btn-cancel-edit" class="btn btn-text">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  </body>
+</html>
