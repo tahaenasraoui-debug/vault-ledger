@@ -4,8 +4,6 @@
 
 *Zero Cloud. Zero Telemetry. 100% On-Device Rust + Quantized Gemma 2B Inference.*
 
-**Website:** [tahaenasraoui-debug.github.io/vault-ledger](https://tahaenasraoui-debug.github.io/vault-ledger/)
-
 ---
 
 ## Overview
