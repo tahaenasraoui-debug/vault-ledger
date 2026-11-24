@@ -246,7 +246,8 @@ impl ExtractedDocument {
         hasher.update(b"|");
         hasher.update(self.currency.as_bytes());
         hasher.update(b"|");
-        hasher.update(format!("{}|{}|{}|{}", net_cents, tax_cents, total_cents, rate_bps).as_bytes());
+        hasher
+            .update(format!("{}|{}|{}|{}", net_cents, tax_cents, total_cents, rate_bps).as_bytes());
         hasher.update(b"|");
         hasher.update(self.expense_category.general_ledger_code().as_bytes());
         hex::encode(hasher.finalize())
@@ -309,4 +310,53 @@ pub fn amount_to_cents(val: f64) -> i64 {
 #[inline]
 pub fn cents_to_amount(cents: i64) -> f64 {
     round_currency((cents as f64) / 100.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_doc() -> ExtractedDocument {
+        ExtractedDocument {
+            vendor_name: "  Hetzner Online GmbH  ".to_string(),
+            invoice_number: Some("  R0048213  ".to_string()),
+            transaction_date: "2026-10-07".to_string(),
+            currency: "eur".to_string(),
+            net_amount: 100.0,
+            tax_amount: 19.0,
+            total_amount: 119.0,
+            tax_rate_percent: None,
+            expense_category: ExpenseCategory::SoftwareAndSaaS,
+            confidence_score: 1.5,
+            raw_notes: None,
+        }
+    }
+
+    #[test]
+    fn validate_and_reconcile_normalizes_valid_document() {
+        let mut doc = valid_doc();
+        doc.validate_and_reconcile().unwrap();
+        assert_eq!(doc.vendor_name, "Hetzner Online GmbH");
+        assert_eq!(doc.invoice_number.as_deref(), Some("R0048213"));
+        assert_eq!(doc.currency, "EUR");
+        assert_eq!(doc.tax_rate_percent, Some(19.0));
+        assert_eq!(doc.confidence_score, 1.0);
+    }
+
+    #[test]
+    fn validate_and_reconcile_rejects_unbalanced_totals_and_bad_currency() {
+        let mut unbalanced = valid_doc();
+        unbalanced.total_amount = 125.0;
+        assert!(matches!(
+            unbalanced.validate_and_reconcile(),
+            Err(VaultError::AccountingValidation { .. })
+        ));
+
+        let mut bad_ccy = valid_doc();
+        bad_ccy.currency = "XYZ".to_string();
+        assert!(matches!(
+            bad_ccy.validate_and_reconcile(),
+            Err(VaultError::AccountingValidation { .. })
+        ));
+    }
 }

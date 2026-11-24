@@ -226,7 +226,10 @@ impl SqliteLedgerStore {
             )
             .optional()
             .map_err(|err| VaultError::DatabaseStorage {
-                details: format!("Failed to look up record '{}' for update: {}", record_id, err),
+                details: format!(
+                    "Failed to look up record '{}' for update: {}",
+                    record_id, err
+                ),
             })?;
 
         if existing_exists.is_none() {
@@ -311,7 +314,10 @@ impl SqliteLedgerStore {
             params![record_id],
         )
         .map_err(|err| VaultError::DatabaseStorage {
-            details: format!("Failed to delete record '{}' from SQLite: {}", record_id, err),
+            details: format!(
+                "Failed to delete record '{}' from SQLite: {}",
+                record_id, err
+            ),
         })?;
 
         Self::recompute_active_chain_in_tx(&tx)?;
@@ -401,7 +407,8 @@ impl SqliteLedgerStore {
             if computed_chain_hash != record.chain_hash {
                 return Err(VaultError::DatabaseTamperDetected {
                     record_id: record.record_id,
-                    reason: "Stored chain_hash does not match recomputed SHA-256 chain link".to_string(),
+                    reason: "Stored chain_hash does not match recomputed SHA-256 chain link"
+                        .to_string(),
                     expected_hash: record.chain_hash,
                     computed_hash: computed_chain_hash,
                 });
@@ -421,23 +428,42 @@ impl SqliteLedgerStore {
                 details: format!("Failed to prepare audit event verification query: {}", err),
             })?;
 
-        let mut event_rows = event_stmt.query([]).map_err(|err| VaultError::DatabaseStorage {
-            details: format!("Failed to query ledger_audit_events: {}", err),
-        })?;
+        let mut event_rows = event_stmt
+            .query([])
+            .map_err(|err| VaultError::DatabaseStorage {
+                details: format!("Failed to query ledger_audit_events: {}", err),
+            })?;
 
         let mut expected_prev_event_hash = GENESIS_CHAIN_HASH.to_string();
         let mut events_count = 0usize;
 
-        while let Some(row) = event_rows.next().map_err(|err| VaultError::DatabaseStorage {
-            details: format!("Failed to read audit event row: {}", err),
-        })? {
-            let record_id: String = row.get(0).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let event_type: String = row.get(1).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let occurred_at_utc: String = row.get(2).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let snapshot_json: String = row.get(3).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let row_audit_hash: String = row.get(4).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let prev_event_hash: String = row.get(5).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let event_chain_hash: String = row.get(6).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+        while let Some(row) = event_rows
+            .next()
+            .map_err(|err| VaultError::DatabaseStorage {
+                details: format!("Failed to read audit event row: {}", err),
+            })?
+        {
+            let record_id: String = row.get(0).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let event_type: String = row.get(1).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let occurred_at_utc: String = row.get(2).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let snapshot_json: String = row.get(3).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let row_audit_hash: String = row.get(4).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let prev_event_hash: String = row.get(5).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let event_chain_hash: String = row.get(6).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
 
             if prev_event_hash != expected_prev_event_hash {
                 return Err(VaultError::DatabaseTamperDetected {
@@ -488,7 +514,10 @@ impl SqliteLedgerStore {
                  ORDER BY seq_no ASC",
             )
             .map_err(|err| VaultError::DatabaseStorage {
-                details: format!("Failed to prepare active chain recomputation query: {}", err),
+                details: format!(
+                    "Failed to prepare active chain recomputation query: {}",
+                    err
+                ),
             })?;
 
         let mut rows = stmt.query([]).map_err(|err| VaultError::DatabaseStorage {
@@ -501,11 +530,21 @@ impl SqliteLedgerStore {
         while let Some(row) = rows.next().map_err(|err| VaultError::DatabaseStorage {
             details: format!("Failed to iterate rows during chain recomputation: {}", err),
         })? {
-            let seq_no: i64 = row.get(0).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let record_id: String = row.get(1).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let source_sha256: String = row.get(2).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let ingested_at_utc: String = row.get(3).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-            let row_audit_hash: String = row.get(4).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+            let seq_no: i64 = row.get(0).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let record_id: String = row.get(1).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let source_sha256: String = row.get(2).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let ingested_at_utc: String = row.get(3).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+            let row_audit_hash: String = row.get(4).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
 
             let new_chain_hash = compute_record_chain_hash(
                 &running_prev_hash,
@@ -527,7 +566,10 @@ impl SqliteLedgerStore {
                 params![prev_hash, chain_hash, seq_no],
             )
             .map_err(|err| VaultError::DatabaseStorage {
-                details: format!("Failed to update chain hashes at seq_no {}: {}", seq_no, err),
+                details: format!(
+                    "Failed to update chain hashes at seq_no {}: {}",
+                    seq_no, err
+                ),
             })?;
         }
 
@@ -584,7 +626,10 @@ impl SqliteLedgerStore {
             ],
         )
         .map_err(|err| VaultError::DatabaseStorage {
-            details: format!("Failed to append audit event into ledger_audit_events: {}", err),
+            details: format!(
+                "Failed to append audit event into ledger_audit_events: {}",
+                err
+            ),
         })?;
 
         Ok(())
@@ -609,11 +654,11 @@ impl SqliteLedgerStore {
                 details: format!("Failed to prepare single record query: {}", err),
             })?;
 
-        let mut rows = stmt
-            .query(params![record_id])
-            .map_err(|err| VaultError::DatabaseStorage {
-                details: format!("Failed to execute single record query: {}", err),
-            })?;
+        let mut rows =
+            stmt.query(params![record_id])
+                .map_err(|err| VaultError::DatabaseStorage {
+                    details: format!("Failed to execute single record query: {}", err),
+                })?;
 
         if let Some(row) = rows.next().map_err(|err| VaultError::DatabaseStorage {
             details: format!("Failed to read single record row: {}", err),
@@ -627,29 +672,68 @@ impl SqliteLedgerStore {
     }
 
     fn decode_ledger_row(row: &rusqlite::Row<'_>) -> Result<LedgerRecord, VaultError> {
-        let record_id: String = row.get(0).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let source_file_name: String = row.get(1).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let source_sha256: String = row.get(2).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let extraction_method: String = row.get(3).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let ingested_at_utc: String = row.get(4).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+        let record_id: String = row.get(0).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let source_file_name: String = row.get(1).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let source_sha256: String = row.get(2).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let extraction_method: String = row.get(3).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let ingested_at_utc: String = row.get(4).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
 
-        let vendor_name: String = row.get(5).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let invoice_number: Option<String> = row.get(6).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let transaction_date: String = row.get(7).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let currency: String = row.get(8).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+        let vendor_name: String = row.get(5).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let invoice_number: Option<String> =
+            row.get(6).map_err(|e| VaultError::DatabaseStorage {
+                details: e.to_string(),
+            })?;
+        let transaction_date: String = row.get(7).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let currency: String = row.get(8).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
 
-        let net_cents: i64 = row.get(9).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let tax_cents: i64 = row.get(10).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let total_cents: i64 = row.get(11).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let tax_rate_bps: Option<i64> = row.get(12).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+        let net_cents: i64 = row.get(9).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let tax_cents: i64 = row.get(10).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let total_cents: i64 = row.get(11).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let tax_rate_bps: Option<i64> = row.get(12).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
 
-        let category_str: String = row.get(13).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let confidence_f64: f64 = row.get(14).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let raw_notes: Option<String> = row.get(15).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+        let category_str: String = row.get(13).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let confidence_f64: f64 = row.get(14).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let raw_notes: Option<String> = row.get(15).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
 
-        let row_audit_hash: String = row.get(16).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let prev_chain_hash: String = row.get(17).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
-        let chain_hash: String = row.get(18).map_err(|e| VaultError::DatabaseStorage { details: e.to_string() })?;
+        let row_audit_hash: String = row.get(16).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let prev_chain_hash: String = row.get(17).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
+        let chain_hash: String = row.get(18).map_err(|e| VaultError::DatabaseStorage {
+            details: e.to_string(),
+        })?;
 
         let expense_category = ExpenseCategory::from_db_key(&category_str)?;
 
@@ -678,5 +762,243 @@ impl SqliteLedgerStore {
             prev_chain_hash,
             chain_hash,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TempDbDir {
+        path: PathBuf,
+    }
+
+    impl TempDbDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "vault_ledger_{}_{}",
+                label,
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+
+        fn db_path(&self) -> PathBuf {
+            self.path.join("vault.sqlite3")
+        }
+    }
+
+    impl Drop for TempDbDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn sample_doc(vendor: &str, currency: &str, net: f64, tax: f64) -> ExtractedDocument {
+        ExtractedDocument {
+            vendor_name: vendor.to_string(),
+            invoice_number: Some("INV-001".to_string()),
+            transaction_date: "2026-10-20".to_string(),
+            currency: currency.to_string(),
+            net_amount: net,
+            tax_amount: tax,
+            total_amount: net + tax,
+            tax_rate_percent: if tax > 0.0 {
+                Some(((tax / net) * 100.0).round())
+            } else {
+                Some(0.0)
+            },
+            expense_category: ExpenseCategory::SoftwareAndSaaS,
+            confidence_score: 0.94,
+            raw_notes: None,
+        }
+    }
+
+    #[test]
+    fn sha256_chain_verifies_across_insert_update_delete_and_reopen() {
+        let tmp = TempDbDir::new("chain_lifecycle");
+        let db_path = tmp.db_path();
+
+        let (mut store, initial_audit) = SqliteLedgerStore::open_and_verify(&db_path).unwrap();
+        assert!(initial_audit.integrity_valid);
+        assert_eq!(initial_audit.active_records_verified, 0);
+        assert_eq!(initial_audit.audit_events_verified, 0);
+        assert_eq!(initial_audit.head_chain_hash, GENESIS_CHAIN_HASH);
+
+        let rec1 = store
+            .insert_record(
+                "rec-1".to_string(),
+                "inv1.pdf".to_string(),
+                "1".repeat(64),
+                "PDF_NATIVE_STREAM".to_string(),
+                "2026-10-20T10:00:00Z".to_string(),
+                sample_doc("Vendor One", "MAD", 100.0, 20.0),
+            )
+            .unwrap();
+        assert_eq!(rec1.prev_chain_hash, GENESIS_CHAIN_HASH);
+
+        let rec2 = store
+            .insert_record(
+                "rec-2".to_string(),
+                "inv2.pdf".to_string(),
+                "2".repeat(64),
+                "PDF_NATIVE_STREAM".to_string(),
+                "2026-10-21T10:00:00Z".to_string(),
+                sample_doc("Vendor Two", "USD", 50.0, 0.0),
+            )
+            .unwrap();
+        assert_eq!(rec2.prev_chain_hash, rec1.chain_hash);
+
+        let audit_after_inserts = store.verify_full_chain().unwrap();
+        assert!(audit_after_inserts.integrity_valid);
+        assert_eq!(audit_after_inserts.active_records_verified, 2);
+        assert_eq!(audit_after_inserts.audit_events_verified, 2);
+        assert_eq!(audit_after_inserts.head_chain_hash, rec2.chain_hash);
+
+        // Update first record: active chain must recompute cleanly and append an UPDATE audit event.
+        let updated_rec1 = store
+            .update_record("rec-1", sample_doc("Vendor One Edited", "MAD", 200.0, 40.0))
+            .unwrap();
+        assert_ne!(updated_rec1.chain_hash, rec1.chain_hash);
+
+        let audit_after_update = store.verify_full_chain().unwrap();
+        assert!(audit_after_update.integrity_valid);
+        assert_eq!(audit_after_update.active_records_verified, 2);
+        assert_eq!(audit_after_update.audit_events_verified, 3);
+
+        // Delete first record: remaining record should now chain directly from GENESIS_CHAIN_HASH.
+        let audit_after_delete = store.delete_record("rec-1").unwrap();
+        assert!(audit_after_delete.integrity_valid);
+        assert_eq!(audit_after_delete.active_records_verified, 1);
+        assert_eq!(audit_after_delete.audit_events_verified, 4);
+
+        let remaining = store.list_records().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].record_id, "rec-2");
+        assert_eq!(remaining[0].prev_chain_hash, GENESIS_CHAIN_HASH);
+
+        drop(store);
+
+        // Re-opening from disk must pass full cryptographic verification.
+        let (_reopened, reopened_audit) = SqliteLedgerStore::open_and_verify(&db_path).unwrap();
+        assert!(reopened_audit.integrity_valid);
+        assert_eq!(reopened_audit.active_records_verified, 1);
+        assert_eq!(reopened_audit.audit_events_verified, 4);
+    }
+
+    #[test]
+    fn sha256_chain_detects_out_of_band_row_tampering() {
+        let tmp = TempDbDir::new("tamper_row");
+        let db_path = tmp.db_path();
+
+        let (mut store, _) = SqliteLedgerStore::open_and_verify(&db_path).unwrap();
+        store
+            .insert_record(
+                "rec-1".to_string(),
+                "inv1.pdf".to_string(),
+                "a".repeat(64),
+                "PDF_NATIVE_STREAM".to_string(),
+                "2026-10-20T10:00:00Z".to_string(),
+                sample_doc("Legit Vendor", "EUR", 100.0, 20.0),
+            )
+            .unwrap();
+        drop(store);
+
+        // Tamper with vendor_name out-of-band directly in SQLite.
+        let raw_conn = Connection::open(&db_path).unwrap();
+        raw_conn
+            .execute(
+                "UPDATE ledger_records SET vendor_name = 'Tampered Vendor' WHERE record_id = 'rec-1'",
+                [],
+            )
+            .unwrap();
+        drop(raw_conn);
+
+        let err = SqliteLedgerStore::open_and_verify(&db_path).err().unwrap();
+        assert!(matches!(
+            err,
+            VaultError::DatabaseTamperDetected { ref record_id, .. } if record_id == "rec-1"
+        ));
+    }
+
+    #[test]
+    fn sha256_chain_detects_broken_chain_hash_link() {
+        let tmp = TempDbDir::new("tamper_chain");
+        let db_path = tmp.db_path();
+
+        let (mut store, _) = SqliteLedgerStore::open_and_verify(&db_path).unwrap();
+        store
+            .insert_record(
+                "rec-1".to_string(),
+                "inv1.pdf".to_string(),
+                "a".repeat(64),
+                "PDF_NATIVE_STREAM".to_string(),
+                "2026-10-20T10:00:00Z".to_string(),
+                sample_doc("Vendor A", "USD", 100.0, 0.0),
+            )
+            .unwrap();
+        store
+            .insert_record(
+                "rec-2".to_string(),
+                "inv2.pdf".to_string(),
+                "b".repeat(64),
+                "PDF_NATIVE_STREAM".to_string(),
+                "2026-10-21T10:00:00Z".to_string(),
+                sample_doc("Vendor B", "USD", 200.0, 0.0),
+            )
+            .unwrap();
+        drop(store);
+
+        // Corrupt prev_chain_hash on second record.
+        let raw_conn = Connection::open(&db_path).unwrap();
+        raw_conn
+            .execute(
+                "UPDATE ledger_records SET prev_chain_hash = ?1 WHERE record_id = 'rec-2'",
+                params!["f".repeat(64)],
+            )
+            .unwrap();
+        drop(raw_conn);
+
+        let err = SqliteLedgerStore::open_and_verify(&db_path).err().unwrap();
+        assert!(matches!(
+            err,
+            VaultError::DatabaseTamperDetected { ref record_id, .. } if record_id == "rec-2"
+        ));
+    }
+
+    #[test]
+    fn sha256_chain_detects_audit_event_log_tampering() {
+        let tmp = TempDbDir::new("tamper_audit");
+        let db_path = tmp.db_path();
+
+        let (mut store, _) = SqliteLedgerStore::open_and_verify(&db_path).unwrap();
+        store
+            .insert_record(
+                "rec-1".to_string(),
+                "inv1.pdf".to_string(),
+                "c".repeat(64),
+                "PDF_NATIVE_STREAM".to_string(),
+                "2026-10-20T10:00:00Z".to_string(),
+                sample_doc("Vendor C", "MAD", 300.0, 60.0),
+            )
+            .unwrap();
+        drop(store);
+
+        // Tamper with snapshot_json in the append-only ledger_audit_events table.
+        let raw_conn = Connection::open(&db_path).unwrap();
+        raw_conn
+            .execute(
+                "UPDATE ledger_audit_events SET snapshot_json = '{\"forged\":true}' WHERE record_id = 'rec-1'",
+                [],
+            )
+            .unwrap();
+        drop(raw_conn);
+
+        let err = SqliteLedgerStore::open_and_verify(&db_path).err().unwrap();
+        assert!(matches!(
+            err,
+            VaultError::DatabaseTamperDetected { ref record_id, .. } if record_id == "rec-1"
+        ));
     }
 }

@@ -156,13 +156,38 @@ if (!isTauri) {
       auditEvents += 1;
       return rec;
     },
-    export_double_entry_csv: (a) => ({
-      destination_path: `${a.destinationPath} (demo: no file written)`,
-      documents_exported: records.length,
-      journal_rows_written: records.length * 3,
-      total_debits: 0,
-      total_credits: 0,
-    }),
+    export_double_entry_csv: (a) => {
+      const byCurrency = new Map<string, { documents_exported: number; debitCents: number; creditCents: number }>();
+      let rows = 0;
+      for (const rec of records) {
+        const ccy = rec.document.currency.trim().toUpperCase();
+        const entry = byCurrency.get(ccy) ?? { documents_exported: 0, debitCents: 0, creditCents: 0 };
+        entry.documents_exported += 1;
+        entry.debitCents +=
+          Math.round(rec.document.net_amount * 100) +
+          (rec.document.tax_amount > 0 ? Math.round(rec.document.tax_amount * 100) : 0);
+        entry.creditCents += Math.round(rec.document.total_amount * 100);
+        byCurrency.set(ccy, entry);
+        rows += rec.document.tax_amount > 0 ? 3 : 2;
+      }
+      const totals_by_currency = Array.from(byCurrency.entries())
+        .sort(([aCcy], [bCcy]) => aCcy.localeCompare(bCcy))
+        .map(([currency, v]) => ({
+          currency,
+          documents_exported: v.documents_exported,
+          total_debits: v.debitCents / 100,
+          total_credits: v.creditCents / 100,
+        }));
+      const single = totals_by_currency.length === 1 ? totals_by_currency[0] : null;
+      return {
+        destination_path: `${a.destinationPath} (demo: no file written)`,
+        documents_exported: records.length,
+        journal_rows_written: rows,
+        totals_by_currency,
+        total_debits: single ? single.total_debits : totals_by_currency.length === 0 ? 0 : null,
+        total_credits: single ? single.total_credits : totals_by_currency.length === 0 ? 0 : null,
+      };
+    },
   };
 
   (window as any).__TAURI_INTERNALS__ = {

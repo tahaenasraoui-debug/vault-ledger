@@ -47,13 +47,64 @@ pub struct AirGapStatusReport {
     pub audit_report: DatabaseAuditReport,
 }
 
+fn resolve_home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .filter(|v| !v.is_empty())
+        .or_else(|| std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()))
+        .map(PathBuf::from)
+}
+
+pub fn expand_tilde_path(path: &Path) -> Result<PathBuf, VaultError> {
+    expand_tilde_with_home(path, resolve_home_dir().as_deref())
+}
+
+pub(crate) fn expand_tilde_with_home(
+    path: &Path,
+    home_dir: Option<&Path>,
+) -> Result<PathBuf, VaultError> {
+    let Some(raw) = path.to_str() else {
+        return Ok(path.to_path_buf());
+    };
+
+    if raw == "~" {
+        return match home_dir {
+            Some(home) => Ok(home.to_path_buf()),
+            None => Err(VaultError::Io {
+                path: path.to_path_buf(),
+                source: std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Cannot expand '~': neither HOME nor USERPROFILE environment variable is set",
+                ),
+            }),
+        };
+    }
+
+    if raw.starts_with("~/") || raw.starts_with("~\\") {
+        let home = home_dir.ok_or_else(|| VaultError::Io {
+            path: path.to_path_buf(),
+            source: std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Cannot expand '~': neither HOME nor USERPROFILE environment variable is set",
+            ),
+        })?;
+
+        let remainder = raw[1..].trim_start_matches(['/', '\\']);
+        if remainder.is_empty() {
+            return Ok(home.to_path_buf());
+        }
+        return Ok(home.join(remainder));
+    }
+
+    Ok(path.to_path_buf())
+}
+
 #[tauri::command]
-pub async fn ingest_and_extract_document(
+async fn ingest_and_extract_document(
     app: AppHandle,
     state: State<'_, AppState>,
     file_path: String,
 ) -> Result<LedgerRecord, VaultError> {
-    let path_buf = PathBuf::from(&file_path);
+    let path_buf = expand_tilde_path(Path::new(&file_path))?;
     let canonical_path = fs::canonicalize(&path_buf).map_err(|source| VaultError::Io {
         path: path_buf.clone(),
         source,
@@ -114,9 +165,7 @@ pub async fn ingest_and_extract_document(
 }
 
 #[tauri::command]
-pub async fn list_ledger_records(
-    state: State<'_, AppState>,
-) -> Result<Vec<LedgerRecord>, VaultError> {
+async fn list_ledger_records(state: State<'_, AppState>) -> Result<Vec<LedgerRecord>, VaultError> {
     let sqlite_store = Arc::clone(&state.sqlite_store);
     tokio::task::spawn_blocking(move || -> Result<Vec<LedgerRecord>, VaultError> {
         let db_guard = sqlite_store.lock().map_err(|_| VaultError::Concurrency {
@@ -131,7 +180,7 @@ pub async fn list_ledger_records(
 }
 
 #[tauri::command]
-pub async fn update_ledger_record(
+async fn update_ledger_record(
     state: State<'_, AppState>,
     record_id: String,
     updated_document: ExtractedDocument,
@@ -150,7 +199,7 @@ pub async fn update_ledger_record(
 }
 
 #[tauri::command]
-pub async fn delete_ledger_record(
+async fn delete_ledger_record(
     state: State<'_, AppState>,
     record_id: String,
 ) -> Result<DatabaseAuditReport, VaultError> {
@@ -168,7 +217,7 @@ pub async fn delete_ledger_record(
 }
 
 #[tauri::command]
-pub async fn verify_ledger_audit_chain(
+async fn verify_ledger_audit_chain(
     state: State<'_, AppState>,
 ) -> Result<DatabaseAuditReport, VaultError> {
     let sqlite_store = Arc::clone(&state.sqlite_store);
@@ -180,17 +229,20 @@ pub async fn verify_ledger_audit_chain(
     })
     .await
     .map_err(|join_err| VaultError::Concurrency {
-        details: format!("SQLite audit verification worker failed to join: {}", join_err),
+        details: format!(
+            "SQLite audit verification worker failed to join: {}",
+            join_err
+        ),
     })?
 }
 
 #[tauri::command]
-pub async fn export_double_entry_csv(
+async fn export_double_entry_csv(
     state: State<'_, AppState>,
     destination_path: String,
 ) -> Result<ExportSummary, VaultError> {
     let sqlite_store = Arc::clone(&state.sqlite_store);
-    let dest_path_buf = PathBuf::from(destination_path);
+    let dest_path_buf = expand_tilde_path(Path::new(&destination_path))?;
 
     tokio::task::spawn_blocking(move || -> Result<ExportSummary, VaultError> {
         let records_snapshot = {
@@ -210,7 +262,7 @@ pub async fn export_double_entry_csv(
 }
 
 #[tauri::command]
-pub async fn verify_airgap_integrity(
+async fn verify_airgap_integrity(
     state: State<'_, AppState>,
 ) -> Result<AirGapStatusReport, VaultError> {
     let sqlite_store = Arc::clone(&state.sqlite_store);
@@ -254,31 +306,58 @@ pub fn run() {
             let resolver = app.path();
 
             let gguf_path = resolver
-                .resolve("resources/models/gemma-2b-it-q4_k_m.gguf", BaseDirectory::Resource)
-                .map_err(|e| Box::new(VaultError::ModelInference { details: e.to_string() }))?;
+                .resolve(
+                    "resources/models/gemma-2b-it-q4_k_m.gguf",
+                    BaseDirectory::Resource,
+                )
+                .map_err(|e| {
+                    Box::new(VaultError::ModelInference {
+                        details: e.to_string(),
+                    })
+                })?;
 
             let tokenizer_path = resolver
                 .resolve("resources/models/tokenizer.json", BaseDirectory::Resource)
-                .map_err(|e| Box::new(VaultError::Tokenizer { details: e.to_string() }))?;
+                .map_err(|e| {
+                    Box::new(VaultError::Tokenizer {
+                        details: e.to_string(),
+                    })
+                })?;
 
             let det_ocr_path = resolver
                 .resolve("resources/ocr/text-detection.rten", BaseDirectory::Resource)
-                .map_err(|e| Box::new(VaultError::OcrExecution { details: e.to_string() }))?;
+                .map_err(|e| {
+                    Box::new(VaultError::OcrExecution {
+                        details: e.to_string(),
+                    })
+                })?;
 
             let rec_ocr_path = resolver
-                .resolve("resources/ocr/text-recognition.rten", BaseDirectory::Resource)
-                .map_err(|e| Box::new(VaultError::OcrExecution { details: e.to_string() }))?;
+                .resolve(
+                    "resources/ocr/text-recognition.rten",
+                    BaseDirectory::Resource,
+                )
+                .map_err(|e| {
+                    Box::new(VaultError::OcrExecution {
+                        details: e.to_string(),
+                    })
+                })?;
 
             let app_data_dir = resolver
                 .resolve("vault_storage", BaseDirectory::AppLocalData)
-                .map_err(|e| Box::new(VaultError::DatabaseStorage { details: e.to_string() }))?;
+                .map_err(|e| {
+                    Box::new(VaultError::DatabaseStorage {
+                        details: e.to_string(),
+                    })
+                })?;
 
             let sqlite_db_path = app_data_dir.join("vault_ledger.sqlite3");
 
             let model_sha256 = compute_file_sha256(&gguf_path)?;
             let ingestor = DocumentIngestor::new(&det_ocr_path, &rec_ocr_path)?;
             let llm_engine = GemmaExtractionEngine::load_from_disk(&gguf_path, &tokenizer_path)?;
-            let (sqlite_store, _startup_audit) = SqliteLedgerStore::open_and_verify(&sqlite_db_path)?;
+            let (sqlite_store, _startup_audit) =
+                SqliteLedgerStore::open_and_verify(&sqlite_db_path)?;
 
             app.manage(AppState {
                 ingestor: Arc::new(ingestor),
@@ -300,4 +379,81 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("Fatal failure while starting air-gapped VaultLedger Tauri v2 runtime");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expand_tilde_expands_home_and_subpaths() {
+        let home = Path::new("/home/alice");
+
+        assert_eq!(
+            expand_tilde_with_home(Path::new("~"), Some(home)).unwrap(),
+            PathBuf::from("/home/alice")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("~/"), Some(home)).unwrap(),
+            PathBuf::from("/home/alice")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("~/Documents/invoice.pdf"), Some(home)).unwrap(),
+            PathBuf::from("/home/alice/Documents/invoice.pdf")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("~//Documents/journal_2026.csv"), Some(home)).unwrap(),
+            PathBuf::from("/home/alice/Documents/journal_2026.csv")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("~\\Documents\\journal_2026.csv"), Some(home))
+                .unwrap(),
+            PathBuf::from("/home/alice").join("Documents\\journal_2026.csv")
+        );
+    }
+
+    #[test]
+    fn expand_tilde_leaves_non_home_paths_unchanged() {
+        let home = Path::new("/home/alice");
+
+        assert_eq!(
+            expand_tilde_with_home(Path::new("/tmp/invoice.pdf"), Some(home)).unwrap(),
+            PathBuf::from("/tmp/invoice.pdf")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("relative/invoice.pdf"), Some(home)).unwrap(),
+            PathBuf::from("relative/invoice.pdf")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("~bob/invoice.pdf"), Some(home)).unwrap(),
+            PathBuf::from("~bob/invoice.pdf")
+        );
+        assert_eq!(
+            expand_tilde_with_home(Path::new("/var/~/invoice.pdf"), Some(home)).unwrap(),
+            PathBuf::from("/var/~/invoice.pdf")
+        );
+    }
+
+    #[test]
+    fn expand_tilde_errors_when_home_is_missing() {
+        let err = expand_tilde_with_home(Path::new("~/Documents/invoice.pdf"), None).unwrap_err();
+        assert!(matches!(err, VaultError::Io { .. }));
+
+        let bare_err = expand_tilde_with_home(Path::new("~"), None).unwrap_err();
+        assert!(matches!(bare_err, VaultError::Io { .. }));
+
+        // Non-tilde paths still succeed even without HOME set.
+        assert_eq!(
+            expand_tilde_with_home(Path::new("/tmp/invoice.pdf"), None).unwrap(),
+            PathBuf::from("/tmp/invoice.pdf")
+        );
+    }
+
+    #[test]
+    fn expand_tilde_path_uses_environment_home() {
+        if let Some(expected_home) = resolve_home_dir() {
+            let expanded = expand_tilde_path(Path::new("~/Documents/invoice.pdf")).unwrap();
+            assert_eq!(expanded, expected_home.join("Documents/invoice.pdf"));
+        }
+    }
 }

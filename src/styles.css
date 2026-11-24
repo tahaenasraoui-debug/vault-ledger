@@ -494,6 +494,20 @@ input:focus-visible,
   font-size: 0.5em;
 }
 
+.ccy-total {
+  display: block;
+}
+
+.figure.multi-currency {
+  font-size: 2.1rem;
+  line-height: 1.2;
+}
+
+.part-value.multi-currency {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
 .operator {
   padding-top: 26px;
   font-family: var(--serif);
@@ -824,8 +838,6 @@ input:focus-visible,
     animation: none !important;
     transition: none !important;
   }
-<<<<<<< HEAD
-=======
 }
 
 .stream-head span:first-child {
@@ -838,5 +850,4 @@ input:focus-visible,
 .stream-head span:last-child {
   flex: none;
   white-space: nowrap;
->>>>>>> c43bda1 (Update project files)
 }

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+docs/
+vault-ledger-pages-docs.zip
 .DS_Store
 src-tauri/target/
 src-tauri/gen/

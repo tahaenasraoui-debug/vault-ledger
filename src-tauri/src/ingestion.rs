@@ -20,7 +20,10 @@ pub struct DocumentIngestor {
 }
 
 impl DocumentIngestor {
-    pub fn new(detection_model_path: &Path, recognition_model_path: &Path) -> Result<Self, VaultError> {
+    pub fn new(
+        detection_model_path: &Path,
+        recognition_model_path: &Path,
+    ) -> Result<Self, VaultError> {
         let det_bytes = fs::read(detection_model_path).map_err(|source| VaultError::Io {
             path: detection_model_path.to_path_buf(),
             source,
@@ -80,12 +83,13 @@ impl DocumentIngestor {
                 extraction_method: method,
             })
         } else if let Some(img_format) = detect_image_magic(&raw_bytes) {
-            let dyn_image = image::load_from_memory_with_format(&raw_bytes, img_format).map_err(|err| {
-                VaultError::ImageDecoding {
-                    path: file_path.to_path_buf(),
-                    details: err.to_string(),
-                }
-            })?;
+            let dyn_image =
+                image::load_from_memory_with_format(&raw_bytes, img_format).map_err(|err| {
+                    VaultError::ImageDecoding {
+                        path: file_path.to_path_buf(),
+                        details: err.to_string(),
+                    }
+                })?;
             let ocr_text = self.run_ocr_on_image(&dyn_image)?;
             let cleaned = normalize_extracted_text(&ocr_text);
             if cleaned.is_empty() {
@@ -101,16 +105,22 @@ impl DocumentIngestor {
         } else {
             Err(VaultError::UnsupportedFormat {
                 path: file_path.to_path_buf(),
-                reason: "Header magic bytes do not match PDF, PNG, JPEG, TIFF, or WebP.".to_string(),
+                reason: "Header magic bytes do not match PDF, PNG, JPEG, TIFF, or WebP."
+                    .to_string(),
             })
         }
     }
 
-    fn extract_from_pdf(&self, file_path: &Path, raw_bytes: &[u8]) -> Result<(String, String), VaultError> {
-        let pdf_doc = PdfDocument::load_mem(raw_bytes).map_err(|err| VaultError::PdfExtraction {
-            path: file_path.to_path_buf(),
-            details: format!("Failed to parse PDF object table: {}", err),
-        })?;
+    fn extract_from_pdf(
+        &self,
+        file_path: &Path,
+        raw_bytes: &[u8],
+    ) -> Result<(String, String), VaultError> {
+        let pdf_doc =
+            PdfDocument::load_mem(raw_bytes).map_err(|err| VaultError::PdfExtraction {
+                path: file_path.to_path_buf(),
+                details: format!("Failed to parse PDF object table: {}", err),
+            })?;
 
         let pages = pdf_doc.get_pages();
         if pages.is_empty() {
@@ -153,30 +163,34 @@ impl DocumentIngestor {
         let rgb_img = DynamicImage::ImageLuma8(preprocessed).into_rgb8();
         let (width, height) = rgb_img.dimensions();
 
-        let img_source = ImageSource::from_bytes(rgb_img.as_raw(), (width, height)).map_err(|err| {
-            VaultError::OcrExecution {
-                details: format!("Failed to construct OCR ImageSource buffer: {}", err),
-            }
-        })?;
+        let img_source =
+            ImageSource::from_bytes(rgb_img.as_raw(), (width, height)).map_err(|err| {
+                VaultError::OcrExecution {
+                    details: format!("Failed to construct OCR ImageSource buffer: {}", err),
+                }
+            })?;
 
-        let ocr_input = self.ocr_engine.prepare_input(img_source).map_err(|err| {
-            VaultError::OcrExecution {
-                details: format!("OCR input tensor preparation failed: {}", err),
-            }
-        })?;
+        let ocr_input =
+            self.ocr_engine
+                .prepare_input(img_source)
+                .map_err(|err| VaultError::OcrExecution {
+                    details: format!("OCR input tensor preparation failed: {}", err),
+                })?;
 
-        let word_rects = self.ocr_engine.detect_words(&ocr_input).map_err(|err| {
-            VaultError::OcrExecution {
-                details: format!("OCR word bounding-box detection failed: {}", err),
-            }
-        })?;
+        let word_rects =
+            self.ocr_engine
+                .detect_words(&ocr_input)
+                .map_err(|err| VaultError::OcrExecution {
+                    details: format!("OCR word bounding-box detection failed: {}", err),
+                })?;
 
         let line_rects = self.ocr_engine.find_text_lines(&ocr_input, &word_rects);
-        let line_texts = self.ocr_engine.recognize_text(&ocr_input, &line_rects).map_err(|err| {
-            VaultError::OcrExecution {
+        let line_texts = self
+            .ocr_engine
+            .recognize_text(&ocr_input, &line_rects)
+            .map_err(|err| VaultError::OcrExecution {
                 details: format!("OCR line recognition failed: {}", err),
-            }
-        })?;
+            })?;
 
         let mut output = String::new();
         for line in line_texts.into_iter().flatten() {
@@ -226,7 +240,7 @@ fn preprocess_for_ocr(img: &DynamicImage) -> GrayImage {
 
 fn extract_embedded_images_from_pdf(pdf_doc: &PdfDocument) -> Vec<DynamicImage> {
     let mut images = Vec::new();
-    for (_object_id, object) in &pdf_doc.objects {
+    for object in pdf_doc.objects.values() {
         if let Object::Stream(ref stream) = object {
             let is_image_subtype = stream
                 .dict

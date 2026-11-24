@@ -46,12 +46,28 @@ interface AirGapStatusReport {
   audit_report: DatabaseAuditReport;
 }
 
+interface CurrencyTrialBalance {
+  currency: string;
+  documents_exported: number;
+  total_debits: number;
+  total_credits: number;
+}
+
 interface ExportSummary {
   destination_path: string;
   documents_exported: number;
   journal_rows_written: number;
-  total_debits: number;
-  total_credits: number;
+  totals_by_currency: CurrencyTrialBalance[];
+  total_debits: number | null;
+  total_credits: number | null;
+}
+
+interface CurrencyAggregate {
+  currency: string;
+  count: number;
+  grossCents: number;
+  netCents: number;
+  taxCents: number;
 }
 
 interface InferenceProgressEvent {
@@ -170,24 +186,66 @@ function escapeHtml(raw: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function updateKpiCards(records: LedgerRecord[]): void {
-  let gross = 0;
-  let net = 0;
-  let tax = 0;
-  let confSum = 0;
+function aggregateByCurrency(records: LedgerRecord[]): CurrencyAggregate[] {
+  const byCurrency = new Map<string, CurrencyAggregate>();
 
+  for (const record of records) {
+    const currency = record.document.currency.trim().toUpperCase() || "UNKNOWN";
+    let group = byCurrency.get(currency);
+    if (!group) {
+      group = { currency, count: 0, grossCents: 0, netCents: 0, taxCents: 0 };
+      byCurrency.set(currency, group);
+    }
+    group.count += 1;
+    group.grossCents += Math.round(record.document.total_amount * 100);
+    group.netCents += Math.round(record.document.net_amount * 100);
+    group.taxCents += Math.round(record.document.tax_amount * 100);
+  }
+
+  return Array.from(byCurrency.values()).sort((a, b) =>
+    a.currency.localeCompare(b.currency)
+  );
+}
+
+function renderCurrencyTotals(
+  groups: CurrencyAggregate[],
+  selector: (group: CurrencyAggregate) => number
+): string {
+  if (groups.length === 0) {
+    return money(0);
+  }
+  if (groups.length === 1) {
+    return moneyWithCurrency(selector(groups[0]) / 100, groups[0].currency);
+  }
+  return groups
+    .map(
+      (group) =>
+        `<span class="ccy-total">${moneyWithCurrency(selector(group) / 100, group.currency)}</span>`
+    )
+    .join("");
+}
+
+function updateKpiCards(records: LedgerRecord[]): void {
+  let confSum = 0;
   for (const r of records) {
-    gross += r.document.total_amount;
-    net += r.document.net_amount;
-    tax += r.document.tax_amount;
     confSum += r.document.confidence_score;
   }
 
-  const ccy = records.length > 0 ? records[records.length - 1].document.currency : "MAD";
-  kpiGross.innerHTML = moneyWithCurrency(gross, ccy);
-  kpiGrossSub.textContent = `Across ${records.length} verified document${records.length === 1 ? "" : "s"}`;
-  kpiNet.innerHTML = moneyWithCurrency(net, ccy);
-  kpiTax.innerHTML = moneyWithCurrency(tax, ccy);
+  const groups = aggregateByCurrency(records);
+  const isMultiCurrency = groups.length > 1;
+
+  kpiGross.classList.toggle("multi-currency", isMultiCurrency);
+  kpiNet.classList.toggle("multi-currency", isMultiCurrency);
+  kpiTax.classList.toggle("multi-currency", isMultiCurrency);
+
+  kpiGross.innerHTML = renderCurrencyTotals(groups, (g) => g.grossCents);
+  kpiNet.innerHTML = renderCurrencyTotals(groups, (g) => g.netCents);
+  kpiTax.innerHTML = renderCurrencyTotals(groups, (g) => g.taxCents);
+
+  const docLabel = `Across ${records.length} verified document${records.length === 1 ? "" : "s"}`;
+  kpiGrossSub.textContent = isMultiCurrency
+    ? `${docLabel} in ${groups.length} currencies (${groups.map((g) => g.currency).join(", ")})`
+    : docLabel;
 
   kpiConfidence.textContent =
     records.length > 0 ? `${Math.round((confSum / records.length) * 100)}%` : "—";
@@ -399,8 +457,14 @@ async function handleExportCsv(): Promise<void> {
     const summary = await invoke<ExportSummary>("export_double_entry_csv", {
       destinationPath,
     });
+    const currencySummary =
+      summary.totals_by_currency.length > 0
+        ? ` — ${summary.totals_by_currency
+            .map((t) => `${money(t.total_debits)} ${t.currency}`)
+            .join(", ")}`
+        : "";
     pushToast(
-      `Exported ${summary.documents_exported} invoices (${summary.journal_rows_written} journal lines) to ${summary.destination_path}.`
+      `Exported ${summary.documents_exported} invoices (${summary.journal_rows_written} journal lines${currencySummary}) to ${summary.destination_path}.`
     );
   } catch (err) {
     pushToast(formatError(err), true);

@@ -14,32 +14,21 @@ pub enum VaultError {
     },
 
     #[error("Unsupported or unrecognized document format at '{path}': {reason}")]
-    UnsupportedFormat {
-        path: PathBuf,
-        reason: String,
-    },
+    UnsupportedFormat { path: PathBuf, reason: String },
 
     #[error("PDF structure parsing failed for '{path}': {details}")]
-    PdfExtraction {
-        path: PathBuf,
-        details: String,
-    },
+    PdfExtraction { path: PathBuf, details: String },
 
     #[error("Image decoding or rasterization failed for '{path}': {details}")]
-    ImageDecoding {
-        path: PathBuf,
-        details: String,
-    },
+    ImageDecoding { path: PathBuf, details: String },
 
     #[error("Offline OCR engine failure: {details}")]
-    OcrExecution {
-        details: String,
-    },
+    OcrExecution { details: String },
 
-    #[error("Document yielded zero extractable text after both native stream and OCR passes: '{path}'")]
-    EmptyDocumentText {
-        path: PathBuf,
-    },
+    #[error(
+        "Document yielded zero extractable text after both native stream and OCR passes: '{path}'"
+    )]
+    EmptyDocumentText { path: PathBuf },
 
     #[error("Cryptographic integrity mismatch for bundled asset '{asset}': expected SHA-256 {expected}, computed {actual}")]
     AssetIntegrityMismatch {
@@ -49,14 +38,10 @@ pub enum VaultError {
     },
 
     #[error("Local LLM tensor/GGUF runtime error: {details}")]
-    ModelInference {
-        details: String,
-    },
+    ModelInference { details: String },
 
     #[error("Tokenizer initialization or encoding failure: {details}")]
-    Tokenizer {
-        details: String,
-    },
+    Tokenizer { details: String },
 
     #[error("LLM failed to produce a valid JSON object within {tokens_generated} tokens. Raw output: {raw_output}")]
     MalformedModelJson {
@@ -65,20 +50,13 @@ pub enum VaultError {
     },
 
     #[error("Extracted financial data failed accounting validation: {violation}")]
-    AccountingValidation {
-        violation: String,
-    },
+    AccountingValidation { violation: String },
 
     #[error("Double-entry CSV export failure at '{path}': {details}")]
-    CsvExport {
-        path: PathBuf,
-        details: String,
-    },
+    CsvExport { path: PathBuf, details: String },
 
     #[error("Offline SQLite storage error: {details}")]
-    DatabaseStorage {
-        details: String,
-    },
+    DatabaseStorage { details: String },
 
     #[error("CRITICAL TAMPER ALERT on record '{record_id}': {reason} (expected {expected_hash}, computed {computed_hash})")]
     DatabaseTamperDetected {
@@ -89,14 +67,10 @@ pub enum VaultError {
     },
 
     #[error("Internal concurrency or background worker join failure: {details}")]
-    Concurrency {
-        details: String,
-    },
+    Concurrency { details: String },
 
     #[error("Requested ledger record ID '{record_id}' was not found in the SQLite vault")]
-    RecordNotFound {
-        record_id: String,
-    },
+    RecordNotFound { record_id: String },
 }
 
 #[derive(Serialize)]

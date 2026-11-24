@@ -14,9 +14,10 @@ Freelancers, auditors, and privacy-critical businesses shouldn't have to upload 
 
 ### The Air-Gap Guarantee
 
-* **Compile-Time Network Ban:** `build.rs` inspects the resolved Cargo dependency graph at compile time and panics if any HTTP/network crate (`reqwest`, `curl`, `hyper`, `ureq`) is present.
-* **Memory Safety:** Compiled with `#![forbid(unsafe_code)]` across the entire Rust codebase.
-* **Locked CSP:** Tauri v2 capability sandboxing restricts IPC strictly to local memory with external origins blocked.
+* **Direct Dependency & Build-Time Enforcement:** `src-tauri/Cargo.toml` declares zero HTTP/network client crates and explicitly disables `tokenizers`' default `http` feature (`default-features = false, features = ["fancy-regex"]`). At compile time, `src-tauri/build.rs` inspects `src-tauri/Cargo.toml` dependency tables and build environment flags (`DEP_CURL*`, `CARGO_FEATURE_HTTP*`), failing the build if any forbidden HTTP/network client crate (`reqwest`, `curl`, `curl-sys`, `hyper`, `ureq`, `isahc`, `surf`, `tauri-plugin-http`) is added.
+  * *Transparency note on `Cargo.lock`:* Because Cargo resolves all platform targets into `Cargo.lock`, `reqwest` and `hyper` appear in `src-tauri/Cargo.lock` as mobile-only (`android`/iOS) transitive dependencies of `tauri`. On desktop targets (Linux, macOS, Windows), neither `reqwest` nor `hyper` is compiled into the binary (verifiable via `cargo tree -i reqwest` / `cargo tree -i hyper`); Tauri only compiles the transport-free `http` types crate for local `ipc://` and `asset://` protocol handling.
+* **Memory Safety:** Compiled with `#![forbid(unsafe_code)]` across the entire VaultLedger Rust codebase (enforced in both `Cargo.toml` `[lints.rust]` and module attributes).
+* **Locked CSP & Capabilities:** Tauri v2 capability sandboxing (`src-tauri/capabilities/airgap.json`) and strict CSP (`src-tauri/tauri.conf.json`) restrict IPC strictly to local `ipc://` and `asset://` origins with external origins blocked and no HTTP or shell plugins enabled.
 
 ---
 
@@ -134,25 +135,48 @@ cd vault-ledger
 
 
 
-### 2. Run in Development Mode
+### 2. Download & Place Required Local Model Files
+
+Because model weights are large and gitignored, VaultLedger expects **4 local model files** under `src-tauri/resources/` (matching `src-tauri/src/lib.rs` and `src-tauri/tauri.conf.json`) before running or bundling the Tauri desktop app:
+
+| Required Path | Description & Source |
+| --- | --- |
+| `src-tauri/resources/models/gemma-2b-it-q4_k_m.gguf` | Quantized **Gemma** Instruct GGUF (`Q4_K_M`, loaded via Candle's `quantized_gemma3` GGUF runner). Obtain a compatible `Q4_K_M` Gemma GGUF from Hugging Face (after accepting Google's Gemma Terms of Use) and save it under this exact filename. |
+| `src-tauri/resources/models/tokenizer.json` | Hugging Face fast tokenizer (`tokenizer.json`) from [`google/gemma-2b-it`](https://huggingface.co/google/gemma-2b-it). |
+| `src-tauri/resources/ocr/text-detection.rten` | Offline OCR text-detection model from [`ocrs`](https://github.com/robertknight/ocrs). |
+| `src-tauri/resources/ocr/text-recognition.rten` | Offline OCR text-recognition model from [`ocrs`](https://github.com/robertknight/ocrs). |
+
+Create the directories and fetch the two `ocrs` OCR models:
 
 ```bash
-npm install
-npm run tauri dev
+mkdir -p src-tauri/resources/models src-tauri/resources/ocr
 
+curl -fL -o src-tauri/resources/ocr/text-detection.rten \
+  https://ocrs-models.s3-accelerate.amazonaws.com/text-detection.rten
+
+curl -fL -o src-tauri/resources/ocr/text-recognition.rten \
+  https://ocrs-models.s3-accelerate.amazonaws.com/text-recognition.rten
 ```
 
-### 3. Build Production Desktop Bundle
+Then place `gemma-2b-it-q4_k_m.gguf` and `tokenizer.json` inside `src-tauri/resources/models/`.
+
+> **Note:** To preview the UI in a browser without downloading the local models, run `npm ci && npm run dev` — outside the Tauri runtime, `src/demo.ts` automatically provides offline sample data.
+
+### 3. Run in Development Mode
+
+```bash
+npm ci
+npm run tauri dev
+```
+
+### 4. Build Production Desktop Bundle
 
 ```bash
 npm run tauri build
-
 ```
-
----
 
 ---
 
 ## License
 
-Distributed under the MIT License.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
