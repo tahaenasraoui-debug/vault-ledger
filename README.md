@@ -177,6 +177,28 @@ npm run tauri build
 
 ---
 
+## Contributing
+
+Contributions, bug reports, and feature suggestions are welcome. For larger changes or new features, please open an issue first to discuss the approach before writing code.
+
+1. Fork the repository and create a branch from `main` (e.g., `git checkout -b fix/short-description` or `feat/short-description`).
+2. Keep pull requests focused on a single change and follow the existing code style.
+3. Run the local checks before opening a PR:
+
+   ```bash
+   npx tsc --noEmit
+   npm run build
+   (cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test)
+   ```
+
+4. Open a Pull Request describing what changed and why (include a screenshot or GIF for UI changes, and link any related issue).
+
+Preserve the air-gap guarantee (no outbound network calls or telemetry) and never commit model weights or real financial documents.
+
+When reporting bugs, please include steps to reproduce, expected vs. actual behavior, and your environment details (OS, Node.js, and Rust toolchain version).
+
+---
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
