@@ -1,33 +1,19 @@
 # VaultLedger
 
-### **Air-Gapped Local AI Financial Extraction & Cryptographic Double-Entry Ledger**
+Local-first, air-gapped desktop app built with Rust and Tauri v2. Extracts line items from PDF invoices and receipt photos using an on-device quantized Gemma 2B model (Candle), stores records in a SHA-256 hash-chained SQLite database, and exports balanced double-entry general ledger CSVs.
 
-*Zero Cloud. Zero Telemetry. 100% On-Device Rust + Quantized Gemma 2B Inference.*
-
----
-
-## Overview
-
-Freelancers, auditors, and privacy-critical businesses shouldn't have to upload sensitive invoices, tax IDs, and banking records to third-party cloud APIs just to automate bookkeeping.
-
-**VaultLedger** is a strictly **air-gapped, local-first desktop application** engineered in **Rust** and **Tauri v2**. It ingests messy PDF invoices or receipt photos, extracts structured accounting line items using an embedded **Google Gemma 2B (Q4_K_M GGUF)** model running via pure-Rust **Candle** tensors, anchors every record into a **SHA-256 tamper-evident SQLite database**, and exports balanced **Double-Entry General Ledger CSVs**.
-
-### The Air-Gap Guarantee
+## Air-Gap Enforcement
 
 * **Direct Dependency & Build-Time Enforcement:** `src-tauri/Cargo.toml` declares zero HTTP/network client crates and explicitly disables `tokenizers`' default `http` feature (`default-features = false, features = ["fancy-regex"]`). At compile time, `src-tauri/build.rs` inspects `src-tauri/Cargo.toml` dependency tables and build environment flags (`DEP_CURL*`, `CARGO_FEATURE_HTTP*`), failing the build if any forbidden HTTP/network client crate (`reqwest`, `curl`, `curl-sys`, `hyper`, `ureq`, `isahc`, `surf`, `tauri-plugin-http`) is added.
   * *Transparency note on `Cargo.lock`:* Because Cargo resolves all platform targets into `Cargo.lock`, `reqwest` and `hyper` appear in `src-tauri/Cargo.lock` as mobile-only (`android`/iOS) transitive dependencies of `tauri`. On desktop targets (Linux, macOS, Windows), neither `reqwest` nor `hyper` is compiled into the binary (verifiable via `cargo tree -i reqwest` / `cargo tree -i hyper`); Tauri only compiles the transport-free `http` types crate for local `ipc://` and `asset://` protocol handling.
 * **Memory Safety:** Compiled with `#![forbid(unsafe_code)]` across the entire VaultLedger Rust codebase (enforced in both `Cargo.toml` `[lints.rust]` and module attributes).
 * **Locked CSP & Capabilities:** Tauri v2 capability sandboxing (`src-tauri/capabilities/airgap.json`) and strict CSP (`src-tauri/tauri.conf.json`) restrict IPC strictly to local `ipc://` and `asset://` origins with external origins blocked and no HTTP or shell plugins enabled.
 
----
-
 ## Demo
 
 ![VaultLedger dashboard](assets/image.png)
 
 Live site: [https://tahaenasraoui-debug.github.io/vault-ledger/](https://tahaenasraoui-debug.github.io/vault-ledger/)
-
----
 
 ## System Architecture
 
@@ -53,19 +39,15 @@ flowchart LR
 
 ```
 
----
+## Subsystems
 
-## Key Engineering Features
-
-| Subsystem | Technical Implementation | Why It Matters |
+| Subsystem | Technical Implementation | Behavior |
 | --- | --- | --- |
 | **Hybrid Document Ingestion** | `lopdf` + `image` + `ocrs` (`rten` neural weights) | Extracts native PDF text in milliseconds; automatically falls back to contrast-enhanced offline OCR for scanned receipts. |
 | **Embedded GGUF Inference** | `candle-core` + `candle-transformers` | Runs quantized **Gemma 2B Instruct** locally on CPU/Metal/CUDA with real-time token streaming over Tauri v2 events. |
 | **Deterministic Accounting Math** | `schemars` + Fixed-Point Integer Cents (`i64`) | Enforces ISO-8601 dates, ISO-4217 currencies (`MAD`, `USD`, `EUR`, etc.), and reconciles `net + tax == total` without IEEE-754 float drift. |
 | **Tamper-Evident SQLite Vault** | `rusqlite` (WAL mode) + `sha2` | Every row is cryptographically chained (`prev_chain_hash -> chain_hash`) alongside an append-only `ledger_audit_events` log. Out-of-band DB edits trigger an immediate tamper alert. |
 | **Double-Entry Tax Exporter** | `csv` + Atomic Temp-Write & `sync_all` | Expands each invoice into balanced **DEBIT** (Expense GL + `2210-VAT-INPUT`) and **CREDIT** (`2000-AP-CLEARING`) journal rows and verifies the trial balance before atomic file rename. |
-
----
 
 ## General Ledger Account Mapping
 
@@ -82,13 +64,11 @@ Every extracted invoice is automatically classified into a standard General Ledg
 * **`2210-VAT-INPUT`** — Recoverable Input VAT / Sales Tax *(Auto-generated Debit leg when `tax_amount > 0`)*
 * **`2000-AP-CLEARING`** — Accounts Payable / Freelance Clearing *(Auto-generated Credit leg for `total_amount`)*
 
----
-
 ## Repository Structure
 
 ```text
 vault-ledger/
-├── index.html                  # Obsidian Fintech UI & Glassmorphic Dashboard
+├── index.html                  # Frontend HTML entrypoint
 ├── package.json                # Vite + TypeScript + Tauri v2 CLI scripts
 ├── tsconfig.json               # Strict TypeScript compiler configuration
 ├── vite.config.ts              # Vite bundler config
@@ -116,24 +96,25 @@ vault-ledger/
 
 ```
 
----
-
 ## Getting Started
 
 ### 1. Prerequisites
 
 Ensure you have **Rust (1.79+)** and **Node.js (18+)** installed.
 
-* **Arch Linux:**
+* **Arch Linux system dependencies:**
+
 ```bash
 sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg nodejs npm rustup
 rustup default stable
-git clone https://github.com/tahaenasraoui-debug/vault-ledger.git
-cd vault-ledger
-
 ```
 
+* **Clone the repository:**
 
+```bash
+git clone https://github.com/tahaenasraoui-debug/vault-ledger.git
+cd vault-ledger
+```
 
 ### 2. Download & Place Required Local Model Files
 
@@ -175,8 +156,6 @@ npm run tauri dev
 npm run tauri build
 ```
 
----
-
 ## Contributing
 
 Contributions, bug reports, and feature suggestions are welcome. For larger changes or new features, please open an issue first to discuss the approach before writing code.
@@ -196,8 +175,6 @@ Contributions, bug reports, and feature suggestions are welcome. For larger chan
 Preserve the air-gap guarantee (no outbound network calls or telemetry) and never commit model weights or real financial documents.
 
 When reporting bugs, please include steps to reproduce, expected vs. actual behavior, and your environment details (OS, Node.js, and Rust toolchain version).
-
----
 
 ## License
 
